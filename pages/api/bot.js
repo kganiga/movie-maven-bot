@@ -2,11 +2,12 @@ import TelegramBot from "node-telegram-bot-api";
 import axios from "axios";
 import "dotenv/config";
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+bot.setWebHook(`${process.env.VERCEL_URL}/api/bot`);
+
 const locale = "en-IN";
 const country = locale.split("-")[1].toUpperCase();
 
-// Welcome message
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(
@@ -20,49 +21,63 @@ bot.on("message", async (msg) => {
 
   const chatId = msg.chat.id;
   const query = msg.text;
-  const results = await searchTMDB(query);
+  try {
+    const results = await searchTMDB(query);
 
-  if (results.length === 0) {
-    bot.sendMessage(chatId, "No results found.");
-    return;
+    if (results.length === 0) {
+      bot.sendMessage(chatId, "No results found.");
+      return;
+    }
+
+    results.sort(
+      (a, b) =>
+        new Date(b.release_date || b.first_air_date) -
+        new Date(a.release_date || a.first_air_date)
+    );
+
+    await handleResults(chatId, results);
+  } catch (error) {
+    console.error(error);
+    bot.sendMessage(chatId, "An error occurred while fetching details.");
   }
-
-  // Sort results by release date (newest first)
-  results.sort(
-    (a, b) =>
-      new Date(b.release_date || b.first_air_date) -
-      new Date(a.release_date || a.first_air_date)
-  );
-
-  await handleResults(chatId, results);
 });
 
 const searchTMDB = async (query) => {
-  const response = await axios.get(
-    `https://api.themoviedb.org/3/search/multi`,
-    {
-      params: {
-        api_key: process.env.TMDB_API_KEY,
-        query: query,
-        language: locale,
-      },
-    }
-  );
-  return response.data.results;
+  try {
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/search/multi`,
+      {
+        params: {
+          api_key: process.env.TMDB_API_KEY,
+          query: query,
+          language: locale,
+        },
+      }
+    );
+    return response.data.results;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 };
 
 const getDetails = async (type, id) => {
-  const response = await axios.get(
-    `https://api.themoviedb.org/3/${type}/${id}`,
-    {
-      params: {
-        api_key: process.env.TMDB_API_KEY,
-        append_to_response: "credits,watch/providers",
-        language: locale,
-      },
-    }
-  );
-  return response.data;
+  try {
+    const response = await axios.get(
+      `https://api.themoviedb.org/3/${type}/${id}`,
+      {
+        params: {
+          api_key: process.env.TMDB_API_KEY,
+          append_to_response: "credits,watch/providers",
+          language: locale,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    return {};
+  }
 };
 
 const handleResults = async (chatId, results) => {
@@ -147,5 +162,8 @@ const waitForAnswer = (chatId, id) => {
 };
 
 export default (req, res) => {
+  if (req.method === 'POST') {
+    bot.processUpdate(req.body);
+  }
   res.status(200).json({ status: "Bot is running" });
 };
