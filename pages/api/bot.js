@@ -3,7 +3,7 @@ import axios from "axios";
 import "dotenv/config";
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
-bot.setWebHook(`${process.env.VERCEL_URL}/api/bot`);
+bot.setWebHook(`${process.env.VERCEL_PUBLIC_URL}/api/bot`);
 
 const locale = "en-IN";
 const country = locale.split("-")[1].toUpperCase();
