@@ -1,7 +1,0 @@
-{
-    "scripts": {
-      "build": "next build",
-      "postbuild": "node setWebhook.js"
-    }
-  }
-  
