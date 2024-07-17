@@ -1,12 +1,7 @@
 {
-  "build": {
-    "env": {
-      "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
-      "VERCEL_PUBLIC_URL": "@vercel_public_url",
-      "TMDB_API_KEY": "@tmdb_api_key"
+    "scripts": {
+      "build": "next build",
+      "postbuild": "node setWebhook.js"
     }
-  },
-  "hooks": {
-    "post-deploy": "curl -X POST https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=$VERCEL_PUBLIC_URL/api/bot"
   }
-}
+  
