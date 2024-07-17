@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false});
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
 
 const setWebhook = async () => {
   try {
@@ -15,11 +15,14 @@ const setWebhook = async () => {
   }
 };
 
+// Call setWebhook() to set up the webhook when the server starts
 setWebhook();
 
+// Define locale and country variables
 const locale = "en-IN";
 const country = locale.split("-")[1].toUpperCase();
 
+// Event handler for /start command
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(
@@ -28,6 +31,7 @@ bot.onText(/\/start/, (msg) => {
   );
 });
 
+// Event handler for incoming messages
 bot.on("message", async (msg) => {
   if (msg.text === "/start") return;
 
@@ -42,12 +46,10 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    results.sort(
-      (a, b) =>
-        new Date(b.release_date || b.first_air_date) -
-        new Date(a.release_date || a.first_air_date)
-    );
+    // Sort results by release date (descending)
+    results.sort((a, b) => new Date(b.release_date || b.first_air_date) - new Date(a.release_date || a.first_air_date));
 
+    // Handle results asynchronously
     await handleResults(chatId, results);
   } catch (error) {
     console.error("Error fetching data:", error.message);
@@ -55,6 +57,7 @@ bot.on("message", async (msg) => {
   }
 });
 
+// Function to search TMDB API
 const searchTMDB = async (query) => {
   try {
     const response = await axios.get(
@@ -74,6 +77,7 @@ const searchTMDB = async (query) => {
   }
 };
 
+// Function to fetch details from TMDB
 const getDetails = async (type, id) => {
   try {
     const response = await axios.get(
@@ -93,13 +97,16 @@ const getDetails = async (type, id) => {
   }
 };
 
+// Function to handle results and send messages
 const handleResults = async (chatId, results) => {
   try {
+    // Iterate through each result asynchronously
     for (const result of results) {
       const type = result.media_type;
       const details = await getDetails(type, result.id);
       const message = formatMessage(details, type);
 
+      // Send message with inline keyboard
       await bot.sendMessage(chatId, message, {
         parse_mode: "HTML",
         reply_markup: {
@@ -115,10 +122,11 @@ const handleResults = async (chatId, results) => {
         },
       });
 
+      // Wait for user response
       const answer = await waitForAnswer(chatId, result.id);
       if (answer === "yes") {
         bot.sendMessage(chatId, "Glad I could help!");
-        break;
+        break; // Exit loop if user confirms
       }
     }
   } catch (error) {
@@ -126,6 +134,7 @@ const handleResults = async (chatId, results) => {
   }
 };
 
+// Function to format message with details
 const formatMessage = (details, type) => {
   try {
     const {
@@ -140,33 +149,26 @@ const formatMessage = (details, type) => {
       spoken_languages,
       "watch/providers": watchProviders,
     } = details;
+
     const titleOrName = title || name;
     const date = release_date || first_air_date;
-    const cast = credits.cast
-      .slice(0, 5)
-      .map((c) => c.name)
-      .join(", ");
-
-    const originalLanguage = spoken_languages
-      .map((lang) => lang.english_name)
-      .join(", ");
+    const cast = credits.cast.slice(0, 5).map((c) => c.name).join(", ");
+    const originalLanguage = spoken_languages.map((lang) => lang.english_name).join(", ");
 
     const ottInfo =
       watchProviders.results && watchProviders.results[country]
-        ? watchProviders.results[country].flatrate
-            .map((provider) => provider.provider_name)
-            .join(", ")
+        ? watchProviders.results[country].flatrate.map((provider) => provider.provider_name).join(", ")
         : "Not available";
 
-    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres
-      .map((g) => g.name)
-      .join(", ")}\n<b>Available on:</b> ${ottInfo}`;
+    // Format message in HTML
+    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres.map((g) => g.name).join(", ")}\n<b>Available on:</b> ${ottInfo}`;
   } catch (error) {
     console.error("Error formatting message:", error.message);
     return "Error formatting message";
   }
 };
 
+// Function to wait for user response
 const waitForAnswer = (chatId, id) => {
   return new Promise((resolve) => {
     const callbackQueryListener = (callbackQuery) => {
@@ -183,6 +185,7 @@ const waitForAnswer = (chatId, id) => {
   });
 };
 
+// Export the webhook handler function
 export default (req, res) => {
   if (req.method === "POST") {
     bot.processUpdate(req.body);
