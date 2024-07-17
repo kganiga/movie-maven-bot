@@ -4,8 +4,18 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
-bot.setWebHook(`${process.env.VERCEL_PUBLIC_URL}/api/bot`);
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+
+const setWebhook = async () => {
+  try {
+    await bot.setWebHook(`${process.env.VERCEL_PUBLIC_URL}/api/bot`);
+    console.log("Webhook set successfully.");
+  } catch (error) {
+    console.error("Error setting webhook:", error.message);
+  }
+};
+
+setWebhook();
 
 const locale = "en-IN";
 const country = locale.split("-")[1].toUpperCase();
