@@ -15,17 +15,19 @@ interface BotContext extends Context {
 const bot = new Telegraf<BotContext>(process.env.TELEGRAM_BOT_TOKEN as string);
 bot.use(session({ defaultSession: () => ({}) }));
 
-// const setWebhook = async () => {
-//   try {
-//     const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
-//     await bot.telegram.setWebhook(url);
-//     console.log(`Webhook set successfully: ${url}`);
-//   } catch (error) {
-//     console.error("Error setting webhook:", error.message);
-//   }
-// };
+const processedUpdates = new Set<number>();
 
-// setWebhook();
+const setWebhook = async () => {
+  try {
+    const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
+    await bot.telegram.setWebhook(url);
+    console.log(`Webhook set successfully: ${url}`);
+  } catch (error) {
+    console.error("Error setting webhook:", error.message);
+  }
+};
+
+setWebhook();
 
 // Define locale and country variables
 const locale = "en-IN";
@@ -59,8 +61,8 @@ bot.on("text", async (ctx) => {
     // Sort results by release date (descending)
     results.sort(
       (a, b) =>
-        new Date(b.release_date || b.first_air_date) -
-        new Date(a.release_date || a.first_air_date)
+        new Date(b.release_date || b.first_air_date).getTime() -
+        new Date(a.release_date || a.first_air_date).getTime()
     );
 
     // Handle results asynchronously
@@ -217,8 +219,17 @@ export default async (req: any, res: any) => {
 
   if (req.method === "POST") {
     console.log("Processing update...");
+    const updateId = req.body.update_id;
+
+    if (processedUpdates.has(updateId)) {
+      console.log("Update already processed, skipping.");
+      res.status(200).json({ status: "ok" });
+      return;
+    }
+
     try {
       await bot.handleUpdate(req.body);
+      processedUpdates.add(updateId);
       console.log("Update processed successfully");
       res.status(200).json({ status: "ok" });
     } catch (error) {
