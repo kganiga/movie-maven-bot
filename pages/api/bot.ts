@@ -109,7 +109,7 @@ const searchTMDB = async (query: string) => {
 const showResult = async (ctx: BotContext) => {
   const { results, currentIndex } = ctx.session;
 
-  if (!results || !currentIndex || currentIndex >= results.length) {
+  if (!results || results.length === 0 || currentIndex === undefined || currentIndex >= results.length) {
     ctx.reply("No more results available.");
     return;
   }
@@ -131,6 +131,7 @@ const showResult = async (ctx: BotContext) => {
 
   ctx.reply("Glad I could help!");
 };
+
 
 const getDetails = async (type: string, id: string) => {
   try {
