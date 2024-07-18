@@ -72,6 +72,7 @@ bot.on("text", async (ctx) => {
 // Function to search TMDB API
 const searchTMDB = async (query: string) => {
   try {
+    console.log(`Searching TMDB for query: ${query}`);
     const response = await axios.get(
       "https://api.themoviedb.org/3/search/multi",
       {
@@ -81,6 +82,9 @@ const searchTMDB = async (query: string) => {
           language: locale,
         },
       }
+    );
+    console.log(
+      `TMDB search results: ${JSON.stringify(response.data.results)}`
     );
     return response.data.results;
   } catch (error) {
@@ -92,6 +96,7 @@ const searchTMDB = async (query: string) => {
 // Function to fetch details from TMDB
 const getDetails = async (type: string, id: string) => {
   try {
+    console.log(`Fetching details for ${type} with ID: ${id}`);
     const response = await axios.get(
       `https://api.themoviedb.org/3/${type}/${id}`,
       {
@@ -102,6 +107,7 @@ const getDetails = async (type: string, id: string) => {
         },
       }
     );
+    console.log(`Details fetched for ${type} with ID: ${id}`);
     return response.data;
   } catch (error) {
     console.error("TMDB Details Error:", error.message);
@@ -112,6 +118,7 @@ const getDetails = async (type: string, id: string) => {
 // Function to handle results and send messages
 const handleResults = async (ctx: BotContext, results: any[]) => {
   try {
+    console.log(`Handling ${results.length} results`);
     // Iterate through each result asynchronously
     for (const result of results) {
       const type = result.media_type;
@@ -208,8 +215,14 @@ export default (req: any, res: any) => {
 
   if (req.method === "POST") {
     console.log("Processing update...");
-    bot.handleUpdate(req.body);
-    res.status(200).json({ status: "ok" });
+    try {
+      bot.handleUpdate(req.body);
+      console.log("Update processed successfully");
+      res.status(200).json({ status: "ok" });
+    } catch (error) {
+      console.error("Error processing update:", error.message);
+      res.status(500).json({ status: "error", message: error.message });
+    }
   } else {
     console.log("Method not allowed");
     res.setHeader("Allow", ["POST"]);
