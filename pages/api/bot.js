@@ -15,8 +15,8 @@ const setWebhook = async () => {
   }
 };
 
-// Call setWebhook() to set up the webhook when the server starts
-setWebhook();
+// Delay webhook setup to mitigate cold start issues
+setTimeout(setWebhook, 5000);
 
 // Define locale and country variables
 const locale = "en-IN";
@@ -47,7 +47,11 @@ bot.on("message", async (msg) => {
     }
 
     // Sort results by release date (descending)
-    results.sort((a, b) => new Date(b.release_date || b.first_air_date) - new Date(a.release_date || a.first_air_date));
+    results.sort(
+      (a, b) =>
+        new Date(b.release_date || b.first_air_date) -
+        new Date(a.release_date || a.first_air_date)
+    );
 
     // Handle results asynchronously
     await handleResults(chatId, results);
@@ -152,16 +156,25 @@ const formatMessage = (details, type) => {
 
     const titleOrName = title || name;
     const date = release_date || first_air_date;
-    const cast = credits.cast.slice(0, 5).map((c) => c.name).join(", ");
-    const originalLanguage = spoken_languages.map((lang) => lang.english_name).join(", ");
+    const cast = credits.cast
+      .slice(0, 5)
+      .map((c) => c.name)
+      .join(", ");
+    const originalLanguage = spoken_languages
+      .map((lang) => lang.english_name)
+      .join(", ");
 
     const ottInfo =
       watchProviders.results && watchProviders.results[country]
-        ? watchProviders.results[country].flatrate.map((provider) => provider.provider_name).join(", ")
+        ? watchProviders.results[country].flatrate
+            .map((provider) => provider.provider_name)
+            .join(", ")
         : "Not available";
 
     // Format message in HTML
-    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres.map((g) => g.name).join(", ")}\n<b>Available on:</b> ${ottInfo}`;
+    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres
+      .map((g) => g.name)
+      .join(", ")}\n<b>Available on:</b> ${ottInfo}`;
   } catch (error) {
     console.error("Error formatting message:", error.message);
     return "Error formatting message";
