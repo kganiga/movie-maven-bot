@@ -124,12 +124,12 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
   try {
     console.log(`Handling ${results.length} results`);
 
-    let userConfirmed = false; // Flag to track if user has confirmed a result
+    let currentIndex = 0; // Track current index in results
 
-    // Iterate through each result asynchronously
-    for (const result of results) {
-      if (userConfirmed) break; // Exit loop if user confirmed a result
+    const processNextResult = async () => {
+      if (currentIndex >= results.length) return; // Stop if all results processed
 
+      const result = results[currentIndex];
       const type = result.media_type;
       const details = await getDetails(type, result.id);
       const message = formatMessage(details, type);
@@ -142,7 +142,7 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
             "Is this the one you are looking for?",
             `yes_${result.id}`
           ),
-          Markup.button.callback("Show next result", `no_${result.id}`),
+          Markup.button.callback("Show next result", `next_${result.id}`),
         ])
       );
 
@@ -150,12 +150,15 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
       const answer = await waitForAnswer(ctx, result.id);
       if (answer === "yes") {
         ctx.reply("Glad I could help!");
-        userConfirmed = true; // Set flag to true if user confirms
-      } else if (answer === "timeout") {
-        ctx.reply("Timeout: No response received.");
-        break; // Exit loop on timeout
+        currentIndex = results.length; // End loop
+      } else {
+        currentIndex++;
+        await processNextResult(); // Process next result
       }
-    }
+    };
+
+    // Start processing results
+    await processNextResult();
   } catch (error) {
     console.error("Error handling results:", error.message);
   }
@@ -209,11 +212,11 @@ const waitForAnswer = (ctx: BotContext, id: string) => {
   return new Promise<string>((resolve) => {
     const callbackQueryListener = (callbackQuery: any) => {
       const { data } = callbackQuery;
-      const [answer, resultId] = data.split("_");
+      const [action, resultId] = data.split("_");
 
-      if (parseInt(resultId) === id) {
-        bot.off("callback_query", callbackQueryListener);
-        resolve(answer);
+      if (resultId === id) {
+        bot.off("callback_query", callbackQueryListener); // Remove listener
+        resolve(action);
       }
     };
 
@@ -221,8 +224,8 @@ const waitForAnswer = (ctx: BotContext, id: string) => {
 
     // Set a timeout for 30 seconds (adjust as needed)
     setTimeout(() => {
-      bot.off("callback_query", callbackQueryListener); // Remove listener
-      resolve("timeout"); // Resolve with timeout if no response
+      bot.off("callback_query", callbackQueryListener); // Remove listener on timeout
+      resolve("timeout");
     }, 30000); // 30 seconds timeout
   });
 };
