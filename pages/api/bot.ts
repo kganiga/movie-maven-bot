@@ -43,7 +43,7 @@ bot.start((ctx) => {
 
 bot.command("help", async (ctx) => {
   await ctx.reply(
-    "For help or feedback, please visit: https://movie-maven-bot.vercel.app/"
+    "For feedback and suggestions, please visit: https://movie-maven-bot.vercel.app/"
   );
 });
 
