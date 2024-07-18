@@ -7,6 +7,7 @@ dotenv.config();
 interface SessionData {
   lastQuery?: string;
   currentIndex?: number;
+  results?: any[]; // Store results in session
 }
 
 interface BotContext extends Context {
@@ -48,6 +49,7 @@ bot.on("text", async (ctx) => {
 
   ctx.session.lastQuery = query;
   ctx.session.currentIndex = 0; // Initialize current index
+  ctx.session.results = []; // Initialize results array
 
   try {
     const results = await searchTMDB(query);
