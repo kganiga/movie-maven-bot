@@ -83,6 +83,10 @@ bot.action(/next_(\d+)/, async (ctx) => {
   ctx.answerCbQuery(); // Close the inline keyboard after processing
 });
 
+bot.action(/confirm_(\d+)/, async (ctx) => {
+  ctx.answerCbQuery("Glad I could help!");
+});
+
 const searchTMDB = async (query: string) => {
   try {
     console.log(`Searching TMDB for query: ${query}`);
@@ -96,10 +100,16 @@ const searchTMDB = async (query: string) => {
         },
       }
     );
-    console.log(
-      `TMDB search results: ${JSON.stringify(response.data.results)}`
-    );
-    return response.data.results;
+
+    // Sort results by release date (descending)
+    const sortedResults = response.data.results.sort((a: any, b: any) => {
+      const dateA = new Date(a.release_date || a.first_air_date);
+      const dateB = new Date(b.release_date || b.first_air_date);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log(`TMDB search results: ${JSON.stringify(sortedResults)}`);
+    return sortedResults;
   } catch (error) {
     console.error("TMDB API Error:", error.message);
     return [];
@@ -109,7 +119,12 @@ const searchTMDB = async (query: string) => {
 const showResult = async (ctx: BotContext) => {
   const { results, currentIndex } = ctx.session;
 
-  if (!results || results.length === 0 || currentIndex === undefined || currentIndex >= results.length) {
+  if (
+    !results ||
+    results.length === 0 ||
+    currentIndex === undefined ||
+    currentIndex >= results.length
+  ) {
     ctx.reply("No more results available.");
     return;
   }
@@ -123,15 +138,16 @@ const showResult = async (ctx: BotContext) => {
     message,
     Markup.inlineKeyboard([
       Markup.button.callback(
+        "Is this the one you are looking for?",
+        `confirm_${currentIndex}`
+      ),
+      Markup.button.callback(
         "Show Next Result",
         `next_${currentIndex + 1}` // Increment index for next result
       ),
     ])
   );
-
-  ctx.reply("Glad I could help!");
 };
-
 
 const getDetails = async (type: string, id: string) => {
   try {
