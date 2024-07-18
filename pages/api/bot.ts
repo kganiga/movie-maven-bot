@@ -29,11 +29,9 @@ const setWebhook = async () => {
 
 setWebhook();
 
-// Define locale and country variables
 const locale = "en-IN";
 const country = locale.split("-")[1].toUpperCase();
 
-// Event handler for /start command
 bot.start((ctx) => {
   console.log("Received /start command");
   ctx.reply(
@@ -41,7 +39,6 @@ bot.start((ctx) => {
   );
 });
 
-// Event handler for incoming messages
 bot.on("text", async (ctx) => {
   const query = ctx.message.text.trim();
   if (query === "/start") return;
@@ -65,15 +62,29 @@ bot.on("text", async (ctx) => {
         new Date(a.release_date || a.first_air_date).getTime()
     );
 
-    // Handle results asynchronously
-    await handleResults(ctx, results);
+    // Take only the first result
+    const firstResult = results[0];
+    const type = firstResult.media_type;
+    const details = await getDetails(type, firstResult.id);
+    const message = formatMessage(details, type);
+
+    await ctx.replyWithHTML(
+      message,
+      Markup.inlineKeyboard([
+        Markup.button.callback(
+          "Is this the one you are looking for?",
+          `yes_${firstResult.id}`
+        ),
+      ])
+    );
+
+    ctx.reply("Glad I could help!");
   } catch (error) {
     console.error("Error fetching data:", error.message);
     ctx.reply("An error occurred while fetching details.");
   }
 });
 
-// Function to search TMDB API
 const searchTMDB = async (query: string) => {
   try {
     console.log(`Searching TMDB for query: ${query}`);
@@ -97,7 +108,6 @@ const searchTMDB = async (query: string) => {
   }
 };
 
-// Function to fetch details from TMDB
 const getDetails = async (type: string, id: string) => {
   try {
     console.log(`Fetching details for ${type} with ID: ${id}`);
@@ -119,42 +129,6 @@ const getDetails = async (type: string, id: string) => {
   }
 };
 
-// Function to handle results and send messages
-const handleResults = async (ctx: BotContext, results: any[]) => {
-  try {
-    console.log(`Handling ${results.length} results`);
-
-    for (const result of results) {
-      const type = result.media_type;
-      const details = await getDetails(type, result.id);
-      const message = formatMessage(details, type);
-
-      // Send message with inline keyboard
-      await ctx.replyWithHTML(
-        message,
-        Markup.inlineKeyboard([
-          Markup.button.callback(
-            "Is this the one you are looking for?",
-            `yes_${result.id}`
-          ),
-          Markup.button.callback("Show next result", `next_${result.id}`),
-        ])
-      );
-
-      // Wait for user response
-      const answer = await waitForAnswer(ctx, result.id);
-
-      if (answer === "yes") {
-        ctx.reply("Glad I could help!");
-        break; // Exit loop if user confirms
-      }
-    }
-  } catch (error) {
-    console.error("Error handling results:", error.message);
-  }
-};
-
-// Function to format message with details
 const formatMessage = (details: any, type: string) => {
   try {
     const {
@@ -187,7 +161,6 @@ const formatMessage = (details: any, type: string) => {
             .join(", ")
         : "Not available";
 
-    // Format message in HTML
     return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres
       .map((g: any) => g.name)
       .join(", ")}\n<b>Available on:</b> ${ottInfo}`;
@@ -197,30 +170,6 @@ const formatMessage = (details: any, type: string) => {
   }
 };
 
-// Function to wait for user response
-const waitForAnswer = (ctx: BotContext, id: string) => {
-  return new Promise<string>((resolve) => {
-    const callbackQueryListener = (callbackQuery: any) => {
-      const { data } = callbackQuery;
-      const [action, resultId] = data.split("_");
-
-      if (resultId === id) {
-        bot.off("callback_query", callbackQueryListener); // Remove listener
-        resolve(action);
-      }
-    };
-
-    bot.on("callback_query", callbackQueryListener);
-
-    // Set a timeout for 30 seconds (adjust as needed)
-    setTimeout(() => {
-      bot.off("callback_query", callbackQueryListener); // Remove listener on timeout
-      resolve("timeout");
-    }, 30000); // 30 seconds timeout
-  });
-};
-
-// Export the webhook handler function
 export default async (req: any, res: any) => {
   console.log(`Incoming request: ${req.method} ${req.url}`);
 
