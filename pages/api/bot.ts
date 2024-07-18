@@ -151,6 +151,9 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
       if (answer === "yes") {
         ctx.reply("Glad I could help!");
         userConfirmed = true; // Set flag to true if user confirms
+      } else if (answer === "timeout") {
+        ctx.reply("Timeout: No response received.");
+        break; // Exit loop on timeout
       }
     }
   } catch (error) {
@@ -215,6 +218,12 @@ const waitForAnswer = (ctx: BotContext, id: string) => {
     };
 
     bot.on("callback_query", callbackQueryListener);
+
+    // Set a timeout for 30 seconds (adjust as needed)
+    setTimeout(() => {
+      bot.off("callback_query", callbackQueryListener); // Remove listener
+      resolve("timeout"); // Resolve with timeout if no response
+    }, 30000); // 30 seconds timeout
   });
 };
 
