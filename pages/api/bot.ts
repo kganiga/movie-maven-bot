@@ -27,7 +27,7 @@ const setWebhook = async () => {
   }
 };
 
-//setWebhook();
+setWebhook();
 
 // Define locale and country variables
 const locale = "en-IN";
@@ -124,12 +124,7 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
   try {
     console.log(`Handling ${results.length} results`);
 
-    let currentIndex = 0; // Track current index in results
-
-    const processNextResult = async () => {
-      if (currentIndex >= results.length) return; // Stop if all results processed
-
-      const result = results[currentIndex];
+    for (const result of results) {
       const type = result.media_type;
       const details = await getDetails(type, result.id);
       const message = formatMessage(details, type);
@@ -148,17 +143,12 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
 
       // Wait for user response
       const answer = await waitForAnswer(ctx, result.id);
+
       if (answer === "yes") {
         ctx.reply("Glad I could help!");
-        currentIndex = results.length; // End loop
-      } else {
-        currentIndex++;
-        await processNextResult(); // Process next result
+        break; // Exit loop if user confirms
       }
-    };
-
-    // Start processing results
-    await processNextResult();
+    }
   } catch (error) {
     console.error("Error handling results:", error.message);
   }
