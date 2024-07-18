@@ -41,7 +41,7 @@ bot.start((ctx) => {
   );
 });
 
-bot.command("help", async (ctx) => {
+bot.action(/feedback/, async (ctx) => {
   await ctx.reply(
     "For feedback and suggestions, please visit: https://movie-maven-bot.vercel.app/"
   );
@@ -86,7 +86,7 @@ bot.action(/next_(\d+)/, async (ctx) => {
     ctx.reply("No more results available.");
   }
 
-  ctx.answerCbQuery(); // Close the inline keyboard after processing
+  ctx.answerCbQuery();
 });
 
 bot.action(/confirm_(\d+)/, async (ctx) => {
