@@ -41,6 +41,12 @@ bot.start((ctx) => {
   );
 });
 
+bot.command("help", async (ctx) => {
+  await ctx.reply(
+    "For help or feedback, please visit: https://movie-maven-bot.vercel.app/"
+  );
+});
+
 bot.on("text", async (ctx) => {
   const query = ctx.message.text.trim();
   if (query === "/start") return;

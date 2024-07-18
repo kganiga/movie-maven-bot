@@ -12,7 +12,7 @@ const IntroductionPage = () => {
           name="description"
           content="Discover everything you need to know about your favorite movies and TV shows with Movie Maven. Get detailed information instantly!"
         />
-        <link rel="canonical" href="https://www.yourwebsite.com/" />
+        <link rel="canonical" href="https://movie-maven-bot.vercel.app/" />
         <meta name="robots" content="index, follow" />
         <meta
           property="og:title"
@@ -23,12 +23,8 @@ const IntroductionPage = () => {
           content="Discover everything you need to know about your favorite movies and TV shows with Movie Maven. Get detailed information instantly!"
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://www.yourwebsite.com/" />
-        <meta
-          property="og:image"
-          content="https://www.yourwebsite.com/og-image.jpg"
-        />
-        <meta name="twitter:card" content="summary_large_image" />
+        <meta property="og:url" content="https://movie-maven-bot.vercel.app/" />
+
         <meta
           name="twitter:title"
           content="Movie Maven - Discover Everything About Movies and TV Shows"
@@ -36,10 +32,6 @@ const IntroductionPage = () => {
         <meta
           name="twitter:description"
           content="Discover everything you need to know about your favorite movies and TV shows with Movie Maven. Get detailed information instantly!"
-        />
-        <meta
-          name="twitter:image"
-          content="https://www.yourwebsite.com/twitter-image.jpg"
         />
       </Head>
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
