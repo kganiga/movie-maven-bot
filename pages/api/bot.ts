@@ -123,8 +123,13 @@ const getDetails = async (type: string, id: string) => {
 const handleResults = async (ctx: BotContext, results: any[]) => {
   try {
     console.log(`Handling ${results.length} results`);
+
+    let userConfirmed = false; // Flag to track if user has confirmed a result
+
     // Iterate through each result asynchronously
     for (const result of results) {
+      if (userConfirmed) break; // Exit loop if user confirmed a result
+
       const type = result.media_type;
       const details = await getDetails(type, result.id);
       const message = formatMessage(details, type);
@@ -145,7 +150,7 @@ const handleResults = async (ctx: BotContext, results: any[]) => {
       const answer = await waitForAnswer(ctx, result.id);
       if (answer === "yes") {
         ctx.reply("Glad I could help!");
-        break; // Exit loop if user confirms
+        userConfirmed = true; // Set flag to true if user confirms
       }
     }
   } catch (error) {
