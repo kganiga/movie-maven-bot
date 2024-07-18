@@ -15,17 +15,17 @@ interface BotContext extends Context {
 const bot = new Telegraf<BotContext>(process.env.TELEGRAM_BOT_TOKEN as string);
 bot.use(session({ defaultSession: () => ({}) }));
 
-const setWebhook = async () => {
-  try {
-    const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
-    await bot.telegram.setWebhook(url);
-    console.log(`Webhook set successfully: ${url}`);
-  } catch (error) {
-    console.error("Error setting webhook:", error.message);
-  }
-};
+// const setWebhook = async () => {
+//   try {
+//     const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
+//     await bot.telegram.setWebhook(url);
+//     console.log(`Webhook set successfully: ${url}`);
+//   } catch (error) {
+//     console.error("Error setting webhook:", error.message);
+//   }
+// };
 
-setWebhook();
+// setWebhook();
 
 // Define locale and country variables
 const locale = "en-IN";
