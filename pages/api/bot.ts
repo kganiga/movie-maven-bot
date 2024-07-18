@@ -27,7 +27,7 @@ const setWebhook = async () => {
   }
 };
 
-setWebhook();
+//setWebhook();
 
 // Define locale and country variables
 const locale = "en-IN";
