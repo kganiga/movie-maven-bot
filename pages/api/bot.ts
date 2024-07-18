@@ -6,6 +6,7 @@ dotenv.config();
 
 interface SessionData {
   lastQuery?: string;
+  currentIndex?: number;
 }
 
 interface BotContext extends Context {
@@ -46,6 +47,7 @@ bot.on("text", async (ctx) => {
   console.log(`Received text message: ${query}`);
 
   ctx.session.lastQuery = query;
+  ctx.session.currentIndex = 0; // Initialize current index
 
   try {
     const results = await searchTMDB(query);
@@ -55,34 +57,28 @@ bot.on("text", async (ctx) => {
       return;
     }
 
-    // Sort results by release date (descending)
-    results.sort(
-      (a, b) =>
-        new Date(b.release_date || b.first_air_date).getTime() -
-        new Date(a.release_date || a.first_air_date).getTime()
-    );
+    // Store results in session
+    ctx.session.results = results;
 
-    // Take only the first result
-    const firstResult = results[0];
-    const type = firstResult.media_type;
-    const details = await getDetails(type, firstResult.id);
-    const message = formatMessage(details, type);
-
-    await ctx.replyWithHTML(
-      message,
-      Markup.inlineKeyboard([
-        Markup.button.callback(
-          "Is this the one you are looking for?",
-          `yes_${firstResult.id}`
-        ),
-      ])
-    );
-
-    ctx.reply("Glad I could help!");
+    // Display the first result
+    await showResult(ctx);
   } catch (error) {
     console.error("Error fetching data:", error.message);
     ctx.reply("An error occurred while fetching details.");
   }
+});
+
+bot.action(/next_(\d+)/, async (ctx) => {
+  const index = parseInt(ctx.match[1], 10);
+
+  if (ctx.session.results && index < ctx.session.results.length) {
+    ctx.session.currentIndex = index;
+    await showResult(ctx);
+  } else {
+    ctx.reply("No more results available.");
+  }
+
+  ctx.answerCbQuery(); // Close the inline keyboard after processing
 });
 
 const searchTMDB = async (query: string) => {
@@ -106,6 +102,32 @@ const searchTMDB = async (query: string) => {
     console.error("TMDB API Error:", error.message);
     return [];
   }
+};
+
+const showResult = async (ctx: BotContext) => {
+  const { results, currentIndex } = ctx.session;
+
+  if (!results || !currentIndex || currentIndex >= results.length) {
+    ctx.reply("No more results available.");
+    return;
+  }
+
+  const currentResult = results[currentIndex];
+  const type = currentResult.media_type;
+  const details = await getDetails(type, currentResult.id);
+  const message = formatMessage(details, type);
+
+  await ctx.replyWithHTML(
+    message,
+    Markup.inlineKeyboard([
+      Markup.button.callback(
+        "Show Next Result",
+        `next_${currentIndex + 1}` // Increment index for next result
+      ),
+    ])
+  );
+
+  ctx.reply("Glad I could help!");
 };
 
 const getDetails = async (type: string, id: string) => {
