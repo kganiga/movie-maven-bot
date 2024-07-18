@@ -4,12 +4,13 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: false });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
 const setWebhook = async () => {
   try {
-    await bot.setWebHook(`${process.env.VERCEL_PUBLIC_URL}/api/bot`);
-    console.log("Webhook set successfully.");
+    const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
+    await bot.setWebHook(url);
+    console.log(`Webhook set successfully: ${url}`);
   } catch (error) {
     console.error("Error setting webhook:", error.message);
   }
@@ -47,11 +48,7 @@ bot.on("message", async (msg) => {
     }
 
     // Sort results by release date (descending)
-    results.sort(
-      (a, b) =>
-        new Date(b.release_date || b.first_air_date) -
-        new Date(a.release_date || a.first_air_date)
-    );
+    results.sort((a, b) => new Date(b.release_date || b.first_air_date) - new Date(a.release_date || a.first_air_date));
 
     // Handle results asynchronously
     await handleResults(chatId, results);
@@ -156,25 +153,16 @@ const formatMessage = (details, type) => {
 
     const titleOrName = title || name;
     const date = release_date || first_air_date;
-    const cast = credits.cast
-      .slice(0, 5)
-      .map((c) => c.name)
-      .join(", ");
-    const originalLanguage = spoken_languages
-      .map((lang) => lang.english_name)
-      .join(", ");
+    const cast = credits.cast.slice(0, 5).map((c) => c.name).join(", ");
+    const originalLanguage = spoken_languages.map((lang) => lang.english_name).join(", ");
 
     const ottInfo =
       watchProviders.results && watchProviders.results[country]
-        ? watchProviders.results[country].flatrate
-            .map((provider) => provider.provider_name)
-            .join(", ")
+        ? watchProviders.results[country].flatrate.map((provider) => provider.provider_name).join(", ")
         : "Not available";
 
     // Format message in HTML
-    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres
-      .map((g) => g.name)
-      .join(", ")}\n<b>Available on:</b> ${ottInfo}`;
+    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres.map((g) => g.name).join(", ")}\n<b>Available on:</b> ${ottInfo}`;
   } catch (error) {
     console.error("Error formatting message:", error.message);
     return "Error formatting message";
@@ -200,10 +188,14 @@ const waitForAnswer = (chatId, id) => {
 
 // Export the webhook handler function
 export default (req, res) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+  
   if (req.method === "POST") {
+    console.log("Processing update...");
     bot.processUpdate(req.body);
     res.status(200).json({ status: "ok" });
   } else {
+    console.log("Method not allowed");
     res.setHeader("Allow", ["POST"]);
     res.status(405).end("Method Not Allowed");
   }
