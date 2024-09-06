@@ -107,15 +107,10 @@ const searchTMDB = async (query: string) => {
       }
     );
 
-    // Sort results by release date (descending)
-    const sortedResults = response.data.results.sort((a: any, b: any) => {
-      const dateA = new Date(a.release_date || a.first_air_date);
-      const dateB = new Date(b.release_date || b.first_air_date);
-      return dateB.getTime() - dateA.getTime();
-    });
-
-    console.log(`TMDB search results: ${JSON.stringify(sortedResults)}`);
-    return sortedResults;
+    // Returning results without sorting
+    const results = response.data.results;
+    console.log(`TMDB search results: ${JSON.stringify(results)}`);
+    return results;
   } catch (error) {
     console.error("TMDB API Error:", error.message);
     return [];
@@ -139,19 +134,24 @@ const showResult = async (ctx: BotContext) => {
   const type = currentResult.media_type;
   const details = await getDetails(type, currentResult.id);
   const message = formatMessage(details, type);
+  const thumbnailUrl = `https://image.tmdb.org/t/p/w500${currentResult.poster_path}`;
 
-  await ctx.replyWithHTML(
-    message,
-    Markup.inlineKeyboard([
-      Markup.button.callback(
-        "Is this the one you are looking for?",
-        `confirm_${currentIndex}`
-      ),
-      Markup.button.callback(
-        "Show Next Result",
-        `next_${currentIndex + 1}` // Increment index for next result
-      ),
-    ])
+  await ctx.replyWithPhoto(
+    { url: thumbnailUrl },
+    {
+      caption: message,
+      parse_mode: "HTML",
+      ...Markup.inlineKeyboard([
+        Markup.button.callback(
+          "Is this the one you are looking for?",
+          `confirm_${currentIndex}`
+        ),
+        Markup.button.callback(
+          "Show Next Result",
+          `next_${currentIndex + 1}` // Increment index for next result
+        ),
+      ]),
+    }
   );
 };
 
