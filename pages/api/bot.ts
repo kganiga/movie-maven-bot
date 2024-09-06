@@ -185,21 +185,22 @@ const formatMessage = (details: any, type: string) => {
       first_air_date,
       overview,
       vote_average,
-      genres,
-      credits,
-      spoken_languages,
-      "watch/providers": watchProviders,
+      genres = [],
+      credits = { cast: [] },
+      spoken_languages = [],
+      "watch/providers": watchProviders = {},
     } = details;
 
     const titleOrName = title || name;
-    const date = release_date || first_air_date;
-    const cast = credits.cast
-      .slice(0, 5)
-      .map((c: any) => c.name)
-      .join(", ");
-    const originalLanguage = spoken_languages
-      .map((lang: any) => lang.english_name)
-      .join(", ");
+    const date = release_date || first_air_date || "N/A";
+    const cast =
+      credits.cast
+        .slice(0, 5)
+        .map((c: any) => c.name)
+        .join(", ") || "N/A";
+    const originalLanguage =
+      spoken_languages.map((lang: any) => lang.english_name).join(", ") ||
+      "N/A";
 
     const ottInfo =
       watchProviders.results && watchProviders.results[country]
@@ -208,9 +209,14 @@ const formatMessage = (details: any, type: string) => {
             .join(", ")
         : "Not available";
 
-    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${overview}\n<b>IMDb Rating:</b> ${vote_average}\n<b>Genres:</b> ${genres
-      .map((g: any) => g.name)
-      .join(", ")}\n<b>Available on:</b> ${ottInfo}`;
+    // Format vote_average to two decimal places
+    const formattedRating = vote_average ? vote_average.toFixed(2) : "N/A";
+
+    return `<b>Title:</b> ${titleOrName} (${type})\n<b>Year of Release:</b> ${date}\n<b>Cast:</b> ${cast}\n<b>Language:</b> ${originalLanguage}\n<b>Plot:</b> ${
+      overview || "No overview available"
+    }\n<b>IMDb Rating:</b> ${formattedRating}\n<b>Genres:</b> ${
+      genres.map((g: any) => g.name).join(", ") || "N/A"
+    }\n<b>Available on:</b> ${ottInfo}`;
   } catch (error) {
     console.error("Error formatting message:", error.message);
     return "Error formatting message";
