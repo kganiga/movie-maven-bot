@@ -134,25 +134,49 @@ const showResult = async (ctx: BotContext) => {
   const type = currentResult.media_type;
   const details = await getDetails(type, currentResult.id);
   const message = formatMessage(details, type);
-  const thumbnailUrl = `https://image.tmdb.org/t/p/w500${currentResult.poster_path}`;
 
-  await ctx.replyWithPhoto(
-    { url: thumbnailUrl },
-    {
-      caption: message,
-      parse_mode: "HTML",
-      ...Markup.inlineKeyboard([
-        Markup.button.callback(
-          "Is this the one you are looking for?",
-          `confirm_${currentIndex}`
-        ),
-        Markup.button.callback(
-          "Show Next Result",
-          `next_${currentIndex + 1}` // Increment index for next result
-        ),
-      ]),
+  // Check if there is a valid image URL
+  const imageUrl = currentResult.poster_path
+    ? `https://image.tmdb.org/t/p/w500${currentResult.poster_path}`
+    : null; // Replace with a fallback image URL if needed
+
+  try {
+    if (imageUrl) {
+      // Send image with caption if a valid image URL exists
+      await ctx.replyWithPhoto(imageUrl, {
+        caption: message,
+        parse_mode: "HTML",
+        reply_markup: Markup.inlineKeyboard([
+          Markup.button.callback(
+            "Is this the one you are looking for?",
+            `confirm_${currentIndex}`
+          ),
+          Markup.button.callback(
+            "Show Next Result",
+            `next_${currentIndex + 1}`
+          ),
+        ]),
+      });
+    } else {
+      // Send message without an image if no valid image URL
+      await ctx.replyWithHTML(
+        message,
+        Markup.inlineKeyboard([
+          Markup.button.callback(
+            "Is this the one you are looking for?",
+            `confirm_${currentIndex}`
+          ),
+          Markup.button.callback(
+            "Show Next Result",
+            `next_${currentIndex + 1}`
+          ),
+        ])
+      );
     }
-  );
+  } catch (error) {
+    console.error("Error sending image or message:", error.message);
+    ctx.reply("An error occurred while displaying the result.");
+  }
 };
 
 const getDetails = async (type: string, id: string) => {
