@@ -236,6 +236,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(400).json({ status: "bad_request" });
   }
 
+  // Fast-path: Immediately ignore irrelevant updates (stickers, voice, edited messages, channel posts)
+  // to avoid burning Vercel execution duration and Redis commands
+  const isRelevant = Boolean(
+    (update.message && typeof update.message.text === "string") ||
+    update.callback_query
+  );
+
+  if (!isRelevant) {
+    return res.status(200).json({ status: "ignored_non_text_update" });
+  }
+
   const updateId = update.update_id;
 
   // Deduplicate Telegram updates using atomic Redis SET NX

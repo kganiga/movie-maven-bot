@@ -48,10 +48,18 @@ export class TMDBService {
           query: query,
           language: config.tmdb.locale,
         },
-        timeout: 8000,
+        timeout: 5000,
       });
 
-      const results = response.data?.results || [];
+      const rawResults = response.data?.results || [];
+      // Keep only needed fields to minimize payload size and memory
+      const results = rawResults.map((item: any) => ({
+        id: item.id,
+        media_type: item.media_type || "movie",
+        poster_path: item.poster_path,
+        title: item.title,
+        name: item.name,
+      }));
 
       // Cache results for 24 hours (86400 seconds)
       if (redis && isRedisConfigured()) {
@@ -105,7 +113,7 @@ export class TMDBService {
           append_to_response: "credits,watch/providers",
           language: config.tmdb.locale,
         },
-        timeout: 8000,
+        timeout: 5000,
       });
 
       const details = response.data || {};
