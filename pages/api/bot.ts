@@ -15,6 +15,17 @@ bot.start(async (ctx) => {
   );
 });
 
+bot.help(async (ctx) => {
+  await ctx.replyWithHTML(
+    `🎬 <b>How to use Movie Maven:</b>\n\n` +
+    `Simply send the name of any movie or TV show (e.g., <i>Inception</i>, <i>Stranger Things</i>, <i>Interstellar</i>).\n\n` +
+    `<b>Commands:</b>\n` +
+    `/start - Welcome message\n` +
+    `/usage - Check your remaining daily requests\n` +
+    `/help - How to use this bot`
+  );
+});
+
 bot.action(/feedback/, async (ctx) => {
   await ctx.reply(
     "For feedback and suggestions, please visit: https://movie-maven-bot.vercel.app/"

@@ -15,7 +15,8 @@ The bot is engineered for high-performance serverless deployment on **Vercel** w
 - 💳 **Future Paid Architecture Ready**: Built-in methods for ₹5 = 20 additional requests top-ups.
 - ⚡ **Redis Caching**: Normalized search queries and title details are cached in Upstash Redis, preventing redundant TMDB API calls.
 - 🔒 **Duplicate Update Protection**: Atomic distributed locking prevents duplicate webhook retries from being processed concurrently.
-- 📊 **/usage Command**: Instant view of daily quota usage and remaining requests.
+- 🚀 **Serverless Optimized**: Configured with 256MB RAM in `vercel.json` (cutting GB-hours compute by 75%) and fast-path drops for non-text updates (< 2ms).
+- 📊 **/usage & /help Commands**: Instant view of quota usage and usage guide.
 
 ---
 
@@ -37,7 +38,7 @@ Copy `.env.example` to `.env` and fill in the values:
 | :--- | :--- | :--- | :--- |
 | `TELEGRAM_BOT_TOKEN` | Token from [@BotFather](https://t.me/BotFather) | - | **Yes** |
 | `TELEGRAM_WEBHOOK_SECRET` | Secret token to authenticate incoming Telegram webhooks | - | No (Recommended) |
-| `VERCEL_PUBLIC_URL` | Deployed URL (e.g. `https://your-bot.vercel.app`) | - | **Yes** (in production) |
+| `APP_URL` | Deployed URL (e.g. `https://your-bot.vercel.app`) | Auto-detected | No |
 | `TMDB_API_KEY` | Free API key from [TMDB](https://www.themoviedb.org/settings/api) | - | **Yes** |
 | `BOT_ID` | Identifier for this bot | `movie-maven` | No |
 | `FREE_REQUESTS_PER_DAY` | Max free search requests per Telegram user per day | `5` | No |
@@ -45,30 +46,40 @@ Copy `.env.example` to `.env` and fill in the values:
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL | - | **Yes** (in production) |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST Token | - | **Yes** (in production) |
 
+> **Note on URLs**: Do **NOT** name custom environment variables starting with `VERCEL_` (e.g., `VERCEL_PUBLIC_URL`), as Vercel reserves this prefix. Our code automatically detects Vercel's built-in system URL if `APP_URL` is omitted.
+
 ---
 
 ## 📦 Setting Up Upstash Redis (100% Free Forever)
 
 1. Go to [https://console.upstash.com/](https://console.upstash.com/) and sign up with GitHub or Google (no credit card required).
-2. Click **Create Database**.
+2. Click **Create Database**:
    - **Name**: e.g., `movie-maven-db`
    - **Type**: Regional
    - **Region**: Select a region close to your deployment (e.g., Mumbai `ap-south-1` or Singapore `ap-southeast-1`).
 3. Under the **Details** tab, scroll down to the **REST API** section.
-4. Click on the `.env` tab or copy:
+4. Click on the `.env` tab and copy:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
 5. Add these to your `.env` file (locally) and into your Vercel Project Settings under **Environment Variables**.
 
 ---
 
-## 🤖 Setting Up the Telegram Bot
+## 🤖 Setting Up the Telegram Bot via @BotFather
 
 1. Open Telegram and search for [@BotFather](https://t.me/BotFather).
 2. Send `/newbot` and follow the instructions to choose a name and username for your bot.
-3. BotFather will provide you with an API token (e.g. `123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`).
-4. Copy this token and set it as `TELEGRAM_BOT_TOKEN`.
-5. *(Optional but recommended)* Generate a random string (e.g., `openssl rand -hex 20`) and set it as `TELEGRAM_WEBHOOK_SECRET`.
+3. BotFather will give you an API token (e.g. `7123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ`). Copy this as `TELEGRAM_BOT_TOKEN`.
+4. **Configure Bot Commands Menu**:
+   - Send `/setcommands` to @BotFather.
+   - Select your bot.
+   - Paste:
+     ```text
+     start - Start the bot and get instructions
+     usage - Check your daily request quota
+     help - How to use this bot
+     ```
+5. *(Optional)* Send `/setdescription` to set the welcome screen, `/setabouttext` for the bio, and `/setuserpic` for the profile photo.
 
 ---
 
@@ -77,7 +88,7 @@ Copy `.env.example` to `.env` and fill in the values:
 1. Create a free account at [The Movie Database (TMDB)](https://www.themoviedb.org/signup).
 2. Go to **Account Settings > API** (`https://www.themoviedb.org/settings/api`).
 3. Click **Create** or **Request an API Key** (choose "Developer").
-4. Fill in the required details (App name: e.g. `Movie Maven Bot`).
+4. Fill in the required application details.
 5. Copy your **API Key (v3 auth)** and set it as `TMDB_API_KEY`.
 
 ---
@@ -87,34 +98,34 @@ Copy `.env.example` to `.env` and fill in the values:
 1. Push your code to GitHub:
    ```bash
    git add .
-   git commit -m "feat: serverless hardening, redis quota, and tmdb caching"
+   git commit -m "feat: serverless hardening, redis quota, tmdb caching"
    git push origin master
    ```
-2. In the [Vercel Dashboard](https://vercel.com/), click **Add New... > Project** and import the `movie-maven-bot` repository.
-3. In the project **Settings > Environment Variables**, add all the variables from `.env.example`:
+2. In the [Vercel Dashboard](https://vercel.com/), click **Add New... > Project** and import the repository.
+3. Under **Environment Variables**, add:
    - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_WEBHOOK_SECRET`
-   - `VERCEL_PUBLIC_URL` (set this to your Vercel project domain, e.g. `https://movie-maven-bot.vercel.app`)
+   - `TELEGRAM_WEBHOOK_SECRET` *(optional random string)*
    - `TMDB_API_KEY`
    - `BOT_ID` = `movie-maven`
    - `FREE_REQUESTS_PER_DAY` = `5`
    - `QUOTA_TIMEZONE` = `Asia/Kolkata`
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
+   *(Leave `APP_URL` blank — Vercel will auto-detect the domain!)*
 4. Click **Deploy**.
-5. Once deployed, the webhook is automatically configured via the `postbuild` script (`node setWebhook.js`).
-   - If you ever change your URL or need to re-register the webhook manually:
+5. Once deployed, the webhook is automatically registered with Telegram via the `postbuild` script (`node setWebhook.js`).
+   - If you ever need to manually set or refresh the webhook:
      ```bash
      npm run postbuild
      ```
 
 ---
 
-## 🤖 Bot Commands & Testing
+## 🤖 Bot Commands & Usage
 
 - `/start` — Welcome message and instructions.
 - `/usage` — Displays current user quota usage for today:
-  ```
+  ```text
   Your usage today:
   Free requests: 3 / 5
   Paid requests: 0
@@ -122,5 +133,6 @@ Copy `.env.example` to `.env` and fill in the values:
 
   Resets at midnight (Asia/Kolkata)
   ```
+- `/help` — Quick guide on how to search and available commands.
 - Send any movie or TV show name (e.g. `Inception`, `Stranger Things`, `Interstellar`) to search.
-- Click **"Show Next Result"** to page through items without consuming quota.
+- Click **"Show Next Result"** to page through items without consuming extra quota.
