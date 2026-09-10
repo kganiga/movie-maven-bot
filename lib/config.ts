@@ -4,6 +4,8 @@ dotenv.config();
 
 const getBaseUrl = (): string => {
   const url =
+    process.env.APP_URL ||
+    process.env.PUBLIC_URL ||
     process.env.VERCEL_PUBLIC_URL ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`

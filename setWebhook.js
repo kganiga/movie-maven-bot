@@ -4,6 +4,8 @@ require("dotenv").config();
 const setWebhook = async () => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   let baseUrl =
+    process.env.APP_URL ||
+    process.env.PUBLIC_URL ||
     process.env.VERCEL_PUBLIC_URL ||
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
@@ -15,7 +17,7 @@ const setWebhook = async () => {
 
   if (!token || !baseUrl) {
     console.log(
-      "setWebhook: TELEGRAM_BOT_TOKEN or VERCEL URL not available. Skipping webhook setup."
+      "setWebhook: TELEGRAM_BOT_TOKEN or APP_URL/VERCEL URL not available. Skipping webhook setup."
     );
     return;
   }
