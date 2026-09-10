@@ -2,13 +2,27 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const getBaseUrl = (): string => {
+  const url =
+    process.env.VERCEL_PUBLIC_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "");
+
+  if (!url) return "";
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`;
+  }
+  return url.replace(/\/+$/, "");
+};
+
 export const config = {
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN || "",
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
-    webhookUrl: process.env.VERCEL_PUBLIC_URL
-      ? `${process.env.VERCEL_PUBLIC_URL}/api/bot`
-      : "",
+    webhookUrl: getBaseUrl() ? `${getBaseUrl()}/api/bot` : "",
   },
   tmdb: {
     apiKey: process.env.TMDB_API_KEY || "",
