@@ -25,6 +25,7 @@ export const config = {
     botToken: process.env.TELEGRAM_BOT_TOKEN || "",
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || "",
     webhookUrl: getBaseUrl() ? `${getBaseUrl()}/api/bot` : "",
+    adminChatId: process.env.ADMIN_CHAT_ID || "",
   },
   tmdb: {
     apiKey: process.env.TMDB_API_KEY || "",
@@ -39,5 +40,10 @@ export const config = {
   redis: {
     url: process.env.UPSTASH_REDIS_REST_URL || "",
     token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
+  },
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || "",
+    keySecret: process.env.RAZORPAY_KEY_SECRET || "",
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
   },
 };

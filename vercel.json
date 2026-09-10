@@ -3,6 +3,10 @@
     "pages/api/bot.ts": {
       "memory": 256,
       "maxDuration": 10
+    },
+    "pages/api/razorpay-webhook.ts": {
+      "memory": 256,
+      "maxDuration": 10
     }
   }
 }

@@ -12,11 +12,10 @@ The bot is engineered for high-performance serverless deployment on **Vercel** w
 - 🍿 **Rich Details**: Poster, release date, cast (top 5), IMDb rating, genres, spoken language, and Indian OTT availability (Netflix, Prime Video, Disney+ Hotstar, Zee5, SonyLIV, etc.).
 - 🔄 **Stateless Result Pagination**: Navigate through results ("Show Next Result") seamlessly across serverless instances without losing session state or burning quota.
 - 🛡️ **Daily Quota Enforcement**: Configurable limit of **5 free requests / day / Telegram user** (`Asia/Kolkata` timezone).
-- 💳 **Future Paid Architecture Ready**: Built-in methods for ₹5 = 20 additional requests top-ups.
 - ⚡ **Redis Caching**: Normalized search queries and title details are cached in Upstash Redis, preventing redundant TMDB API calls.
 - 🔒 **Duplicate Update Protection**: Atomic distributed locking prevents duplicate webhook retries from being processed concurrently.
 - 🚀 **Serverless Optimized**: Configured with 256MB RAM in `vercel.json` (cutting GB-hours compute by 75%) and fast-path drops for non-text updates (< 2ms).
-- 📊 **/usage & /help Commands**: Instant view of quota usage and usage guide.
+- 📊 **/usage & /help Commands**: Instant view of daily quota usage and usage guide.
 
 ---
 
@@ -77,6 +76,7 @@ Copy `.env.example` to `.env` and fill in the values:
      ```text
      start - Start the bot and get instructions
      usage - Check your daily request quota
+     feedback - Send suggestions or report an issue
      help - How to use this bot
      ```
 5. *(Optional)* Send `/setdescription` to set the welcome screen, `/setabouttext` for the bio, and `/setuserpic` for the profile photo.
@@ -101,23 +101,18 @@ Copy `.env.example` to `.env` and fill in the values:
    git commit -m "feat: serverless hardening, redis quota, tmdb caching"
    git push origin master
    ```
-2. In the [Vercel Dashboard](https://vercel.com/), click **Add New... > Project** and import the repository.
-3. Under **Environment Variables**, add:
+2. In the [Vercel Dashboard](https://vercel.com/), open your project settings or import the repository.
+3. Under **Environment Variables**, ensure all required variables are set:
    - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_WEBHOOK_SECRET` *(optional random string)*
+   - `TELEGRAM_WEBHOOK_SECRET` *(optional)*
    - `TMDB_API_KEY`
    - `BOT_ID` = `movie-maven`
    - `FREE_REQUESTS_PER_DAY` = `5`
    - `QUOTA_TIMEZONE` = `Asia/Kolkata`
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
-   *(Leave `APP_URL` blank — Vercel will auto-detect the domain!)*
 4. Click **Deploy**.
 5. Once deployed, the webhook is automatically registered with Telegram via the `postbuild` script (`node setWebhook.js`).
-   - If you ever need to manually set or refresh the webhook:
-     ```bash
-     npm run postbuild
-     ```
 
 ---
 
@@ -128,11 +123,11 @@ Copy `.env.example` to `.env` and fill in the values:
   ```text
   Your usage today:
   Free requests: 3 / 5
-  Paid requests: 0
   Remaining: 2
 
   Resets at midnight (Asia/Kolkata)
   ```
 - `/help` — Quick guide on how to search and available commands.
+- `/feedback <message>` — Send feedback, feature requests, or report an issue directly to the team.
 - Send any movie or TV show name (e.g. `Inception`, `Stranger Things`, `Interstellar`) to search.
 - Click **"Show Next Result"** to page through items without consuming extra quota.

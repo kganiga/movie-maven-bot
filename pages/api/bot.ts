@@ -5,6 +5,7 @@ import { TMDBService, normalizeQuery } from "../../lib/tmdb";
 import { QuotaService } from "../../lib/quota";
 import { DedupService } from "../../lib/dedup";
 import { SearchSessionService } from "../../lib/session";
+import { getRedis, isRedisConfigured } from "../../lib/storage";
 
 const bot = new Telegraf<Context>(config.telegram.botToken);
 
@@ -22,13 +23,71 @@ bot.help(async (ctx) => {
     `<b>Commands:</b>\n` +
     `/start - Welcome message\n` +
     `/usage - Check your remaining daily requests\n` +
+    `/feedback &lt;message&gt; - Send feedback or suggestions\n` +
     `/help - How to use this bot`
   );
 });
 
+// /feedback command
+bot.command("feedback", async (ctx) => {
+  const userId = ctx.from?.id;
+  const username = ctx.from?.username ? `@${ctx.from.username}` : (ctx.from?.first_name || "User");
+  const text = ctx.message.text.replace(/^\/feedback\s*/i, "").trim();
+
+  if (!text) {
+    await ctx.replyWithHTML(
+      `💬 <b>We'd Love Your Feedback!</b>\n\n` +
+      `Have a suggestion, found a bug, or want a new feature? Let us know!\n\n` +
+      `<b>How to send feedback:</b>\n` +
+      `Type: <code>/feedback your message here</code>\n\n` +
+      `<i>Example:</i>\n` +
+      `<code>/feedback Please add release dates for upcoming movies!</code>`
+    );
+    return;
+  }
+
+  try {
+    const redis = getRedis();
+    const feedbackItem = {
+      userId,
+      username,
+      message: text,
+      date: new Date().toISOString(),
+    };
+
+    if (redis && isRedisConfigured()) {
+      await redis.lpush("bot:feedback", JSON.stringify(feedbackItem));
+    }
+
+    // Forward to admin chat if configured
+    if (config.telegram.adminChatId) {
+      try {
+        await ctx.telegram.sendMessage(
+          config.telegram.adminChatId,
+          `📬 <b>New Feedback Received!</b>\n\n` +
+          `<b>From:</b> ${username} (ID: <code>${userId}</code>)\n` +
+          `<b>Message:</b>\n${text}`,
+          { parse_mode: "HTML" }
+        );
+      } catch (adminErr) {
+        console.error("Error forwarding feedback to admin:", adminErr);
+      }
+    }
+
+    await ctx.replyWithHTML(
+      `✅ <b>Thank you for your feedback!</b>\n\n` +
+      `Your message has been received by the Movie Maven team. We appreciate your support and ideas! 🍿`
+    );
+  } catch (error: any) {
+    console.error("Error saving feedback:", error);
+    await ctx.reply("Thank you for your feedback! It has been noted.");
+  }
+});
+
 bot.action(/feedback/, async (ctx) => {
-  await ctx.reply(
-    "For feedback and suggestions, please visit: https://movie-maven-bot.vercel.app/"
+  await ctx.replyWithHTML(
+    `💬 <b>Send Us Your Feedback</b>\n\n` +
+    `Type <code>/feedback your message</code> to send your thoughts directly to our team! 🍿`
   );
   await ctx.answerCbQuery();
 });
@@ -46,8 +105,7 @@ bot.command("usage", async (ctx) => {
   const message =
     `<b>Your usage today:</b>\n` +
     `Free requests: ${quota.freeUsed} / ${quota.freeLimit}\n` +
-    `Paid requests: ${quota.paidUsedToday}\n` +
-    `Remaining: ${quota.totalRemaining}\n\n` +
+    `Remaining: ${quota.freeRemaining}\n\n` +
     `<i>Resets at midnight (${config.quota.timezone})</i>`;
 
   await ctx.replyWithHTML(message);
@@ -163,13 +221,12 @@ bot.on("text", async (ctx) => {
 
   if (!quotaResult.allowed) {
     console.log(`User ${userId} quota exhausted (${quotaResult.freeUsed}/${quotaResult.freeLimit})`);
-    await ctx.reply(
+    await ctx.replyWithHTML(
       `⚠️ <b>Daily Limit Reached</b>\n\n` +
-      `You have used all your free requests for today (${quotaResult.freeUsed}/${quotaResult.freeLimit}).\n` +
-      `Free requests reset daily at midnight (${config.quota.timezone}).\n\n` +
-      `💳 <i>Future Upgrade Option:</i>\n` +
-      `₹5 for 20 additional requests (Coming soon!)`,
-      { parse_mode: "HTML" }
+      `You have reached your daily limit of <b>${quotaResult.freeLimit} searches</b> for today.\n\n` +
+      `🕒 <b>Reset Time:</b> Tonight at 12:00 AM midnight (${config.quota.timezone}).\n\n` +
+      `Thank you for using Movie Maven! Please come back tomorrow to discover more movies and shows. 🍿\n\n` +
+      `💬 <i>Have suggestions or feedback? Send us a message anytime using /feedback</i>`
     );
     return;
   }

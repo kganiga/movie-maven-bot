@@ -93,14 +93,7 @@ const IntroductionPage = () => {
           </p>
           <br />
           <p className="text-gray-600">
-            For feedback and suggestions, please send an email to{" "}
-            <a
-              className="text-blue-600 hover:underline"
-              href="mailto:contact@khalilganiga.in"
-            >
-              Movie Maven
-            </a>
-            .
+            For feedback and suggestions, please use the <b>/feedback</b> command directly in the Telegram bot.
           </p>
           <p className="mt-4 text-gray-600">Happy watching! 🍿</p>
         </div>
