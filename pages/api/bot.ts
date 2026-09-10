@@ -1,42 +1,16 @@
-import { Telegraf, Context, Markup, session } from "telegraf";
-import axios from "axios";
-import dotenv from "dotenv";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { Telegraf, Context, Markup } from "telegraf";
+import { config } from "../../lib/config";
+import { TMDBService, normalizeQuery } from "../../lib/tmdb";
+import { QuotaService } from "../../lib/quota";
+import { DedupService } from "../../lib/dedup";
+import { SearchSessionService } from "../../lib/session";
 
-dotenv.config();
+const bot = new Telegraf<Context>(config.telegram.botToken);
 
-interface SessionData {
-  lastQuery?: string;
-  currentIndex?: number;
-  results?: any[]; // Store results in session
-}
-
-interface BotContext extends Context {
-  session: SessionData;
-}
-
-const bot = new Telegraf<BotContext>(process.env.TELEGRAM_BOT_TOKEN as string);
-bot.use(session({ defaultSession: () => ({}) }));
-
-const processedUpdates = new Set<number>();
-
-const setWebhook = async () => {
-  try {
-    const url = `${process.env.VERCEL_PUBLIC_URL}/api/bot`;
-    await bot.telegram.setWebhook(url);
-    console.log(`Webhook set successfully: ${url}`);
-  } catch (error) {
-    console.error("Error setting webhook:", error.message);
-  }
-};
-
-setWebhook();
-
-const locale = "en-IN";
-const country = locale.split("-")[1].toUpperCase();
-
-bot.start((ctx) => {
+bot.start(async (ctx) => {
   console.log("Received /start command");
-  ctx.reply(
+  await ctx.reply(
     "Welcome! Send me the name of a movie or TV show and I will fetch the details for you."
   );
 });
@@ -45,160 +19,28 @@ bot.action(/feedback/, async (ctx) => {
   await ctx.reply(
     "For feedback and suggestions, please visit: https://movie-maven-bot.vercel.app/"
   );
+  await ctx.answerCbQuery();
 });
 
-bot.on("text", async (ctx) => {
-  const query = ctx.message.text.trim();
-  if (query === "/start") return;
-
-  console.log(`Received text message: ${query}`);
-
-  ctx.session.lastQuery = query;
-  ctx.session.currentIndex = 0; // Initialize current index
-  ctx.session.results = []; // Initialize results array
-
-  try {
-    const results = await searchTMDB(query);
-
-    if (results.length === 0) {
-      ctx.reply("No results found.");
-      return;
-    }
-
-    // Store results in session
-    ctx.session.results = results;
-
-    // Display the first result
-    await showResult(ctx);
-  } catch (error) {
-    console.error("Error fetching data:", error.message);
-    ctx.reply("An error occurred while fetching details.");
-  }
-});
-
-bot.action(/next_(\d+)/, async (ctx) => {
-  const index = parseInt(ctx.match[1], 10);
-
-  if (ctx.session.results && index < ctx.session.results.length) {
-    ctx.session.currentIndex = index;
-    await showResult(ctx);
-  } else {
-    ctx.reply("No more results available.");
-  }
-
-  ctx.answerCbQuery();
-});
-
-bot.action(/confirm_(\d+)/, async (ctx) => {
-  ctx.answerCbQuery("Glad I could help!");
-});
-
-const searchTMDB = async (query: string) => {
-  try {
-    console.log(`Searching TMDB for query: ${query}`);
-    const response = await axios.get(
-      "https://api.themoviedb.org/3/search/multi",
-      {
-        params: {
-          api_key: process.env.TMDB_API_KEY,
-          query: query,
-          language: locale,
-        },
-      }
-    );
-
-    // Returning results without sorting
-    const results = response.data.results;
-    console.log(`TMDB search results: ${JSON.stringify(results)}`);
-    return results;
-  } catch (error) {
-    console.error("TMDB API Error:", error.message);
-    return [];
-  }
-};
-
-const showResult = async (ctx: BotContext) => {
-  const { results, currentIndex } = ctx.session;
-
-  if (
-    !results ||
-    results.length === 0 ||
-    currentIndex === undefined ||
-    currentIndex >= results.length
-  ) {
-    ctx.reply("No more results available.");
+// /usage command
+bot.command("usage", async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) {
+    await ctx.reply("Unable to identify Telegram user.");
     return;
   }
 
-  const currentResult = results[currentIndex];
-  const type = currentResult.media_type;
-  const details = await getDetails(type, currentResult.id);
-  const message = formatMessage(details, type);
+  const quota = await QuotaService.getUserQuota(userId);
 
-  // Check if there is a valid image URL
-  const imageUrl = currentResult.poster_path
-    ? `https://image.tmdb.org/t/p/w500${currentResult.poster_path}`
-    : null; // Replace with a fallback image URL if needed
+  const message =
+    `<b>Your usage today:</b>\n` +
+    `Free requests: ${quota.freeUsed} / ${quota.freeLimit}\n` +
+    `Paid requests: ${quota.paidUsedToday}\n` +
+    `Remaining: ${quota.totalRemaining}\n\n` +
+    `<i>Resets at midnight (${config.quota.timezone})</i>`;
 
-  try {
-    if (imageUrl) {
-      // Send image with caption if a valid image URL exists
-      await ctx.replyWithPhoto(imageUrl, {
-        caption: message,
-        parse_mode: "HTML",
-        reply_markup: Markup.inlineKeyboard([
-          Markup.button.callback(
-            "Is this the one you are looking for?",
-            `confirm_${currentIndex}`
-          ),
-          Markup.button.callback(
-            "Show Next Result",
-            `next_${currentIndex + 1}`
-          ),
-        ]),
-      });
-    } else {
-      // Send message without an image if no valid image URL
-      await ctx.replyWithHTML(
-        message,
-        Markup.inlineKeyboard([
-          Markup.button.callback(
-            "Is this the one you are looking for?",
-            `confirm_${currentIndex}`
-          ),
-          Markup.button.callback(
-            "Show Next Result",
-            `next_${currentIndex + 1}`
-          ),
-        ])
-      );
-    }
-  } catch (error) {
-    console.error("Error sending image or message:", error.message);
-    ctx.reply("An error occurred while displaying the result.");
-  }
-};
-
-const getDetails = async (type: string, id: string) => {
-  try {
-    console.log(`Fetching details for ${type} with ID: ${id}`);
-    const response = await axios.get(
-      `https://api.themoviedb.org/3/${type}/${id}`,
-      {
-        params: {
-          api_key: process.env.TMDB_API_KEY,
-          append_to_response: "credits,watch/providers",
-          language: locale,
-        },
-      }
-    );
-    console.log(`Details fetched for ${type} with ID: ${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("TMDB Details Error:", error.message);
-    return {};
-  }
-};
+  await ctx.replyWithHTML(message);
+});
 
 const formatMessage = (details: any, type: string) => {
   try {
@@ -219,18 +61,18 @@ const formatMessage = (details: any, type: string) => {
     const date = release_date || first_air_date || "N/A";
     const cast =
       credits.cast
-        .slice(0, 5)
+        ?.slice(0, 5)
         .map((c: any) => c.name)
         .join(", ") || "N/A";
     const originalLanguage =
-      spoken_languages.map((lang: any) => lang.english_name).join(", ") ||
+      spoken_languages?.map((lang: any) => lang.english_name).join(", ") ||
       "N/A";
 
     const ottInfo =
-      watchProviders.results && watchProviders.results[country]
-        ? watchProviders.results[country].flatrate
-            .map((provider: any) => provider.provider_name)
-            .join(", ")
+      watchProviders.results && watchProviders.results[config.tmdb.country]
+        ? watchProviders.results[config.tmdb.country].flatrate
+            ?.map((provider: any) => provider.provider_name)
+            .join(", ") || "Not available"
         : "Not available";
 
     // Format vote_average to two decimal places
@@ -241,37 +83,178 @@ const formatMessage = (details: any, type: string) => {
     }\n<b>IMDb Rating:</b> ${formattedRating}\n<b>Genres:</b> ${
       genres.map((g: any) => g.name).join(", ") || "N/A"
     }\n<b>Available on:</b> ${ottInfo}`;
-  } catch (error) {
-    console.error("Error formatting message:", error.message);
+  } catch (error: any) {
+    console.error("Error formatting message:", error?.message || error);
     return "Error formatting message";
   }
 };
 
-export default async (req: any, res: any) => {
-  console.log(`Incoming request: ${req.method} ${req.url}`);
+const showResult = async (ctx: Context, results: any[], currentIndex: number) => {
+  if (!results || results.length === 0 || currentIndex >= results.length) {
+    await ctx.reply("No more results available.");
+    return;
+  }
 
-  if (req.method === "POST") {
-    console.log("Processing update...");
-    const updateId = req.body.update_id;
+  const currentResult = results[currentIndex];
+  const type = currentResult.media_type || "movie";
+  const details = await TMDBService.getDetails(type, currentResult.id);
+  const message = formatMessage(details, type);
 
-    if (processedUpdates.has(updateId)) {
-      console.log("Update already processed, skipping.");
-      res.status(200).json({ status: "ok" });
+  const imageUrl = currentResult.poster_path
+    ? `https://image.tmdb.org/t/p/w500${currentResult.poster_path}`
+    : null;
+
+  const keyboardButtons = [
+    Markup.button.callback(
+      "Is this the one you are looking for?",
+      `confirm_${currentIndex}`
+    ),
+  ];
+
+  if (currentIndex + 1 < results.length) {
+    keyboardButtons.push(
+      Markup.button.callback("Show Next Result", `next_${currentIndex + 1}`)
+    );
+  }
+
+  const keyboard = Markup.inlineKeyboard(keyboardButtons);
+
+  try {
+    if (imageUrl) {
+      await ctx.replyWithPhoto(imageUrl, {
+        caption: message,
+        parse_mode: "HTML",
+        reply_markup: keyboard.reply_markup,
+      });
+    } else {
+      await ctx.replyWithHTML(message, keyboard);
+    }
+  } catch (error: any) {
+    console.error("Error sending image or message:", error?.message || error);
+    await ctx.reply("An error occurred while displaying the result.");
+  }
+};
+
+bot.on("text", async (ctx) => {
+  const query = ctx.message.text.trim();
+  if (query.startsWith("/")) return;
+
+  const userId = ctx.from?.id;
+  if (!userId) {
+    await ctx.reply("Unable to identify Telegram user.");
+    return;
+  }
+
+  console.log(`Received search query from user ${userId}: "${query}"`);
+
+  // Check and consume quota
+  const quotaResult = await QuotaService.consumeQuota(userId, config.quota.botId);
+
+  if (!quotaResult.allowed) {
+    console.log(`User ${userId} quota exhausted (${quotaResult.freeUsed}/${quotaResult.freeLimit})`);
+    await ctx.reply(
+      `⚠️ <b>Daily Limit Reached</b>\n\n` +
+      `You have used all your free requests for today (${quotaResult.freeUsed}/${quotaResult.freeLimit}).\n` +
+      `Free requests reset daily at midnight (${config.quota.timezone}).\n\n` +
+      `💳 <i>Future Upgrade Option:</i>\n` +
+      `₹5 for 20 additional requests (Coming soon!)`,
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  try {
+    const results = await TMDBService.searchTMDB(query);
+
+    if (results.length === 0) {
+      await ctx.reply("No results found.");
       return;
     }
 
-    try {
-      await bot.handleUpdate(req.body);
-      processedUpdates.add(updateId);
-      console.log("Update processed successfully");
-      res.status(200).json({ status: "ok" });
-    } catch (error) {
-      console.error("Error processing update:", error.message);
-      res.status(500).json({ status: "error", message: error.message });
-    }
+    // Save active search session for stateless serverless pagination
+    await SearchSessionService.saveUserSearch(userId, normalizeQuery(query));
+
+    // Display the first result
+    await showResult(ctx, results, 0);
+  } catch (error: any) {
+    console.error("Error fetching data:", error?.message || error);
+    await ctx.reply("An error occurred while fetching details.");
+  }
+});
+
+bot.action(/next_(\d+)/, async (ctx) => {
+  const index = parseInt(ctx.match[1], 10);
+  const userId = ctx.from?.id;
+
+  if (!userId) {
+    await ctx.answerCbQuery("Error: User ID not found.");
+    return;
+  }
+
+  const lastQuery = await SearchSessionService.getUserSearch(userId);
+  if (!lastQuery) {
+    await ctx.reply("Search session expired. Please send the movie name again to search.");
+    await ctx.answerCbQuery();
+    return;
+  }
+
+  // Uses cached search results (does not consume user quota and avoids TMDB search call)
+  const results = await TMDBService.searchTMDB(lastQuery);
+
+  if (results && index < results.length) {
+    await showResult(ctx, results, index);
   } else {
-    console.log("Method not allowed");
+    await ctx.reply("No more results available.");
+  }
+
+  await ctx.answerCbQuery();
+});
+
+bot.action(/confirm_(\d+)/, async (ctx) => {
+  await ctx.answerCbQuery("Glad I could help!");
+});
+
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  console.log(`Incoming request: ${req.method} ${req.url}`);
+
+  if (req.method !== "POST") {
     res.setHeader("Allow", ["POST"]);
-    res.status(405).end("Method Not Allowed");
+    return res.status(405).end("Method Not Allowed");
+  }
+
+  // Verify Telegram webhook secret token if configured
+  if (config.telegram.webhookSecret) {
+    const secretToken = req.headers["x-telegram-bot-api-secret-token"];
+    if (secretToken !== config.telegram.webhookSecret) {
+      console.warn("Rejected request: invalid or missing x-telegram-bot-api-secret-token header");
+      return res.status(401).json({ status: "unauthorized" });
+    }
+  }
+
+  const update = req.body;
+  if (!update || typeof update !== "object") {
+    return res.status(400).json({ status: "bad_request" });
+  }
+
+  const updateId = update.update_id;
+
+  // Deduplicate Telegram updates using atomic Redis SET NX
+  if (typeof updateId === "number") {
+    const isNew = await DedupService.isNewUpdate(updateId);
+    if (!isNew) {
+      console.log(`Duplicate update ${updateId} skipped.`);
+      return res.status(200).json({ status: "duplicate_skipped" });
+    }
+  }
+
+  try {
+    await bot.handleUpdate(update);
+    console.log(`Update ${updateId} processed successfully`);
+    return res.status(200).json({ status: "ok" });
+  } catch (error: any) {
+    console.error("Error processing update:", error?.message || error);
+    return res.status(500).json({ status: "error", message: error?.message || "Internal Server Error" });
   }
 };
+
+export default handler;
