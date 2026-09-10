@@ -84,6 +84,53 @@ bot.command("feedback", async (ctx) => {
   }
 });
 
+// Admin command to view recent feedback
+bot.command("feedbacks", async (ctx) => {
+  const userId = String(ctx.from?.id);
+  const adminId = config.telegram.adminChatId;
+
+  // Only allow admin to view feedback
+  if (!adminId || userId !== String(adminId)) {
+    return;
+  }
+
+  const redis = getRedis();
+  if (!redis || !isRedisConfigured()) {
+    await ctx.reply("Storage is not configured.");
+    return;
+  }
+
+  try {
+    const rawList = await redis.lrange<any>("bot:feedback", 0, 9);
+    if (!rawList || rawList.length === 0) {
+      await ctx.reply("No feedback received yet.");
+      return;
+    }
+
+    let message = `📋 <b>Latest User Feedbacks (${rawList.length}):</b>\n\n`;
+    rawList.forEach((item: any, index: number) => {
+      try {
+        const parsed = typeof item === "string" ? JSON.parse(item) : item;
+        const time = parsed.date
+          ? new Date(parsed.date).toLocaleString("en-IN", {
+              timeZone: config.quota.timezone,
+            })
+          : "N/A";
+        message += `<b>#${index + 1} From:</b> ${parsed.username || "Anonymous"} (ID: <code>${parsed.userId}</code>)\n`;
+        message += `🕒 <i>${time}</i>\n`;
+        message += `💬 <i>"${parsed.message}"</i>\n\n`;
+      } catch (err) {
+        message += `<b>#${index + 1}</b> ${item}\n\n`;
+      }
+    });
+
+    await ctx.replyWithHTML(message);
+  } catch (error: any) {
+    console.error("Error fetching feedback list:", error);
+    await ctx.reply("Error fetching feedback.");
+  }
+});
+
 bot.action(/feedback/, async (ctx) => {
   await ctx.replyWithHTML(
     `💬 <b>Send Us Your Feedback</b>\n\n` +

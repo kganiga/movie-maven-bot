@@ -37,6 +37,7 @@ Copy `.env.example` to `.env` and fill in the values:
 | :--- | :--- | :--- | :--- |
 | `TELEGRAM_BOT_TOKEN` | Token from [@BotFather](https://t.me/BotFather) | - | **Yes** |
 | `TELEGRAM_WEBHOOK_SECRET` | Secret token to authenticate incoming Telegram webhooks | - | No (Recommended) |
+| `ADMIN_CHAT_ID` | Your personal Telegram user ID to receive real-time user feedback | - | No |
 | `APP_URL` | Deployed URL (e.g. `https://your-bot.vercel.app`) | Auto-detected | No |
 | `TMDB_API_KEY` | Free API key from [TMDB](https://www.themoviedb.org/settings/api) | - | **Yes** |
 | `BOT_ID` | Identifier for this bot | `movie-maven` | No |
