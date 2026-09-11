@@ -6,11 +6,15 @@ import { QuotaService } from "../../lib/quota";
 import { DedupService } from "../../lib/dedup";
 import { SearchSessionService } from "../../lib/session";
 import { getRedis, isRedisConfigured } from "../../lib/storage";
+import { AnalyticsService } from "../../lib/analytics";
 
 const bot = new Telegraf<Context>(config.telegram.botToken);
 
 bot.start(async (ctx) => {
   console.log("Received /start command");
+  if (ctx.from?.id) {
+    await AnalyticsService.trackUser(ctx.from.id, ctx.from.username, ctx.from.first_name);
+  }
   await ctx.reply(
     "Welcome! Send me the name of a movie or TV show and I will fetch the details for you."
   );
@@ -128,6 +132,33 @@ bot.command("feedbacks", async (ctx) => {
   } catch (error: any) {
     console.error("Error fetching feedback list:", error);
     await ctx.reply("Error fetching feedback.");
+  }
+});
+
+// Admin command to view member & search statistics
+bot.command("stats", async (ctx) => {
+  const userId = String(ctx.from?.id);
+  const adminId = config.telegram.adminChatId;
+
+  // Only allow admin to view statistics
+  if (!adminId || userId !== String(adminId)) {
+    return;
+  }
+
+  try {
+    const stats = await AnalyticsService.getStats();
+
+    await ctx.replyWithHTML(
+      `📊 <b>Movie Maven Analytics</b>\n\n` +
+      `👥 <b>Total Users (All-time):</b> ${stats.totalUsers}\n` +
+      `📅 <b>Active Users Today:</b> ${stats.activeToday}\n` +
+      `🔍 <b>Searches Today:</b> ${stats.searchesToday}\n` +
+      `🎬 <b>Total Searches (All-time):</b> ${stats.totalSearches}\n\n` +
+      `<i>Timezone: ${config.quota.timezone}</i>`
+    );
+  } catch (error: any) {
+    console.error("Error fetching stats:", error);
+    await ctx.reply("Error fetching statistics.");
   }
 });
 
@@ -263,6 +294,9 @@ bot.on("text", async (ctx) => {
 
   console.log(`Received search query from user ${userId}: "${query}"`);
 
+  // Track user activity
+  await AnalyticsService.trackUser(userId, ctx.from?.username, ctx.from?.first_name);
+
   // Check and consume quota
   const quotaResult = await QuotaService.consumeQuota(userId, config.quota.botId);
 
@@ -285,6 +319,9 @@ bot.on("text", async (ctx) => {
       await ctx.reply("No results found.");
       return;
     }
+
+    // Track successful search
+    await AnalyticsService.trackSearch();
 
     // Save active search session for stateless serverless pagination
     await SearchSessionService.saveUserSearch(userId, normalizeQuery(query));
